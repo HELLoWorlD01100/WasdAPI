@@ -5,38 +5,39 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using WasdAPI.Domain;
 
 namespace WasdAPI
 {
-    public class Api
+    public class WasdApi
     {
-        public static IEnumerable<UserInfo> SearchUsersByName(string username)
+        public static async Task<IEnumerable<UserInfo>> SearchUsersByName(string username)
         {
             var uri = $"https://wasd.tv/api/search/channels?limit=15&offset=0&search_phrase={username}";
-            var responseContent = SendRequest(uri);
+            var responseContent = await SendRequestAsync(uri);
             return JsonParser.SearchUsersByNameParse(responseContent);
         }
-        public static string GetIdByName(string username)
+        public static async Task<string> GetIdByName(string username)
         {
             var uri = $"https://wasd.tv/api/v2/broadcasts/public?channel_name={username.ToLower()}";
-            var responseContent = SendRequest(uri);
+            var responseContent = await SendRequestAsync(uri);
             return JsonParser.GetUserIdFromChannelInfo(responseContent);
         }
 
-        public static bool UserIsOnline(string username)
+        public static async Task<bool> UserIsOnline(string username)
         {
             var uri = $"https://wasd.tv/api/v2/broadcasts/public?channel_name={username.ToLower()}";
-            var responseContent = SendRequest(uri);
+            var responseContent = await SendRequestAsync(uri);
             return JsonParser.GetUserIsOnlineFromChannelInfo(responseContent);
         }
 
-        public static bool UserAvailable(string username)
+        public static async Task<bool> UserAvailable(string username)
         {
             var uri = $"https://wasd.tv/api/v2/broadcasts/public?channel_name={username.ToLower()}";
             try
             {
-                var responseContent = SendRequest(uri);
+                var responseContent = await SendRequestAsync(uri);
                 return true;
             }
             catch
@@ -45,21 +46,21 @@ namespace WasdAPI
             }
         }
         
-        public static IEnumerable<StreamInfo> GetTopStreams()
+        public static async Task<IEnumerable<StreamInfo>> GetTopStreams()
         {
             const string uri =
                 "https://wasd.tv/api/v2/media-containers?limit=15&offset=0&media_container_status=RUNNING&media_container_type=SINGLE&order_type=VIEWERS&order_direction=DESC";
        
-            var responseContent = SendRequest(uri);
+            var responseContent = await SendRequestAsync(uri);
        
             return JsonParser.TopStreamsParse(responseContent);
         }
 
-        public static Dictionary<string, string> GetM3U8WithQuality(string userId)
+        public static async Task<Dictionary<string, string>> GetM3U8WithQuality(string userId)
         {
             var m3U8Url = GetM3U8Url(userId);
             using var client = new WebClient();
-            var m3U8FileContent = client.DownloadString(m3U8Url);
+            var m3U8FileContent = await client.DownloadStringTaskAsync(m3U8Url);
             return ParseM3U8File(m3U8FileContent);
         }
 
@@ -78,19 +79,19 @@ namespace WasdAPI
             return $"https://cdn.wasd.tv/live/{userId}/index.m3u8";
         }
 
-        private static string SendRequest(string uri)
+        private static async Task<string> SendRequestAsync(string uri)
         {
             var request = WebRequest.Create(uri);
             request.Method = "GET";
             request.Headers.Add("Referer", "https://wasd.tv/");
-            using var response = request.GetResponse();
-            using var responseStream = response.GetResponseStream();
+            using var response = await request.GetResponseAsync();
+            await using var responseStream = response.GetResponseStream();
         
             if (responseStream is null)
                 throw new ArgumentException("Response stream was null.");
         
             using var reader = new StreamReader(responseStream, Encoding.UTF8);
-            return reader.ReadToEnd();
+            return await reader.ReadToEndAsync();
         }
     }
 }
